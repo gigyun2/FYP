@@ -49,6 +49,15 @@ typedef	ib_uint64_t		lsn_t;
 
 #define LSN_PF			UINT64PF
 
+mysql_cond_t proj_cond;
+
+/************************************************************//**
+@return	end lsn of the log record, zero if did not succeed */
+void
+flusher_main(
+/*=======================*/
+	void);
+
 /** Redo log buffer */
 struct log_t;
 /** Redo log group */
