@@ -1,0 +1,30 @@
+{
+    "files.associations": {
+        "*.ic": "cpp",
+        "my_wincond.c": "cpp",
+        "groonga_benchmark.c": "cpp",
+        "*.i": "cpp",
+        "inihandl.c": "cpp",
+        "my_default.c": "cpp",
+        "index.c": "cpp",
+        "dbug.c": "cpp",
+        "ds_tmpfile.c": "cpp",
+        "xbstream.c": "cpp",
+        "file_logger.c": "cpp",
+        "mf_keycache.c": "cpp",
+        "azio.c": "cpp",
+        "fmdlex.c": "cpp",
+        "ma_loghandler.c": "cpp",
+        "ma_pagecache.c": "cpp",
+        "maria_pack.c": "cpp",
+        "ngx_http_groonga_module.c": "cpp",
+        "myisampack.c": "cpp",
+        "gzio.c": "cpp",
+        "cmath": "cpp",
+        "histexpand.c": "cpp",
+        "groonga.c": "cpp",
+        "async_queries.c": "cpp",
+        "zutil.c": "cpp",
+        "pcre_jit_compile.c": "cpp"
+    }
+}

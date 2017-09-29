@@ -153,6 +153,7 @@ static os_thread_t	thread_handles[SRV_MAX_N_IO_THREADS + 6 + 32];
 static os_thread_t	buf_flush_page_cleaner_thread_handle;
 static os_thread_t	buf_dump_thread_handle;
 static os_thread_t	dict_stats_thread_handle;
+static os_thread_t	log_flush_thread_handle;
 /** Status variables, is thread started ?*/
 static bool		thread_started[SRV_MAX_N_IO_THREADS + 6 + 32] = {false};
 static bool		buf_flush_page_cleaner_thread_started = false;
@@ -1858,6 +1859,7 @@ innobase_start_or_create_for_mysql(void)
 			    + 1 /* recv_writer_thread */
 			    + 1 /* buf_flush_page_cleaner_thread */
 			    + 1 /* trx_rollback_or_clean_all_recovered */
+				+ 1 /* buf_flush_thread */
 			    + 128 /* added as margin, for use of
 				  InnoDB Memcached etc. */
 			    + max_connections
@@ -2943,6 +2945,9 @@ files_checked:
 			dict_stats_thread, NULL, NULL);
 		srv_dict_stats_thread_active = true;
 		dict_stats_thread_started = true;
+
+		log_flush_thread_handle =qaq os_thread_create(
+			flusher_main, NULL, NULL);
 
 		/* Create the thread that will optimize the FTS sub-system. */
 		fts_optimize_init();
