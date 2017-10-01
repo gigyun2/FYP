@@ -80,6 +80,8 @@ struct thread_group_t
   
 } MY_ALIGNED(512);
 
+mysql_cond_t proj_cond;
+
 /* Used for debugging */
 // #define DEBUG_CRYPT 1
 

@@ -74,6 +74,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "row0mysql.h"
 #include "row0sel.h"
 #include "row0upd.h"
+#include "log0log.h"
 #include "log0online.h"
 #include "lock0lock.h"
 #include "dict0crea.h"
