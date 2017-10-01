@@ -69,7 +69,7 @@ Created 12/9/1995 Heikki Tuuri
 #include "srv0mon.h"
 
 typedef struct st_mysql_show_var SHOW_VAR;
-#include <threadpool.h>
+#include "../../../sql/threadpool.h"
 
 mysql_cond_t proj_cond;
 
