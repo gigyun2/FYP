@@ -80,18 +80,6 @@ struct thread_group_t
   
 } MY_ALIGNED(512);
 
-/* Per-thread structure for workers */
-struct worker_thread_t
-{
-  ulonglong  event_count; /* number of request handled by this thread */
-  thread_group_t* thread_group;   
-  worker_thread_t *next_in_list;
-  worker_thread_t **prev_in_list;
-  
-  mysql_cond_t  cond;
-  bool          woken;
-};
-
 /* Used for debugging */
 // #define DEBUG_CRYPT 1
 

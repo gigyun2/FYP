@@ -79,7 +79,6 @@ MYSQL_PLUGIN_IMPORT extern char mysql_unpacked_real_data_home[];
 #include "row0mysql.h"
 #include "row0sel.h"
 #include "row0upd.h"
-#include "log0log.h"
 #include "lock0lock.h"
 #include "dict0crea.h"
 #include "btr0cur.h"
