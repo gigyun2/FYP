@@ -1,7 +1,7 @@
 #!/bin/bash
-export MY_DB_PATH=$HOME/mariadb/run
-export MY_DB_DOC_PATH=$HOME/mariadb/run/doc
-export MY_DB_VAR_PATH=$HOME/mariadb/run/var
+export MY_DB_PATH=$HOME/FYP/run
+export MY_DB_DOC_PATH=$HOME/FYP/run/doic
+export MY_DB_VAR_PATH=$HOME/FYP/run/var
 cmake \
 -DCMAKE_INSTALL_PREFIX=$MY_DB_PATH \
 -DINSTALL_SYSCONFDIR=$MY_DB_PATH/etc \
