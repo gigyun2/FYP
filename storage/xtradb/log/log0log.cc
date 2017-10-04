@@ -183,6 +183,7 @@ the previous */
 // make fine-grained queue
 struct LSN_INFO {
 	lsn_t lsn;
+	ulint wait;
 	ibool flush_to_disk;
 };
 
@@ -226,7 +227,7 @@ bool list_add(Node* head, LSN_INFO key) {
 	return true;
 }
 
-bool list_remove(Node* head) {
+LSN_INFO list_remove(Node* head) {
 	Node* prev = head;
 	pthread_mutex_lock(&prev->mutex);
 	Node* curr = head->next;
@@ -236,8 +237,16 @@ bool list_remove(Node* head) {
 		pthread_mutex_unlock(&prev->mutex);
 		pthread_mutex_unlock(&curr->mutex);
 
-		return curr;
+		LSN_INFO return_info = curr->key;
+
+		free(curr);
+		return return_info;
 	}
+
+	// empty
+	LSN_INFO return_info;
+	return_info.lsn = -1;
+	return return_info;
 }
 
 void list_init(Node** head, Node** tail) {
@@ -1648,9 +1657,6 @@ log_write_up_to(
 	ulint		end_offset;
 	ulint		area_start;
 	ulint		area_end;
-#ifdef UNIV_DEBUG
-	ulint		loop_count	= 0;
-#endif /* UNIV_DEBUG */
 	ulint		unlock;
 	ib_uint64_t	write_lsn;
 	ib_uint64_t	flush_lsn;
@@ -1666,10 +1672,17 @@ log_write_up_to(
 
     // make flusher_main to work
 	LSN_INFO flush_param;
+	
+	flush_param.lsn = lsn;
+	flush_param.wait = wait;
+	flush_param.flush_to_disk = flush_to_disk;
+
 	if (head == NULL) {
 		list_init(&head, &tail);
 	}
+
 	list_add(head, flush_param);
+	
 	mysql_cond_signal(&proj_cond);
     // cond_wait until flusher wakes up
 	do {
@@ -4255,15 +4268,19 @@ flusher()
 	ulint		end_offset;
 	ulint		area_start;
 	ulint		area_end;
-	// #ifdef UNIV_DEBUG
-	ulint		loop_count	= 0;
 	// #endif /* UNIV_DEBUG */
 	ulint		unlock;
 	ib_uint64_t	write_lsn;
 	ib_uint64_t	flush_lsn;
 
-	// loop:
-	// ut_ad(++loop_count < 100);
+	if (head == NULL) return;
+	LSN_INFO flush_info = list_remove(head);
+	
+	if (flush_info.lsn == -1) return;
+	
+	lsn_t lsn = flush_info.lsn;
+	ibool flush_to_disk = flush_info.flush_to_disk;
+	ulint wait = flush_info.wait;
 
 	mutex_enter(&(log_sys->mutex));
 	ut_ad(!recv_no_log_write);
@@ -4310,9 +4327,6 @@ flusher()
 		/* Wait for the write to complete and try to start a new write */
 
 		os_event_wait(log_sys->no_flush_event);
-
-		//goto loop;
-		continue;
 	}
 
 	if (!flush_to_disk
