@@ -107,6 +107,8 @@ Created 2/16/1996 Heikki Tuuri
 # include "ut0crc32.h"
 # include "os0stacktrace.h"
 
+#include "threadpool.h"
+
 /** Log sequence number immediately after startup */
 UNIV_INTERN lsn_t	srv_start_lsn;
 /** Log sequence number at shutdown */

@@ -68,7 +68,6 @@ Created 12/9/1995 Heikki Tuuri
 #include "trx0roll.h"
 #include "srv0mon.h"
 
-mysql_cond_t proj_cond;
 mysql_mutex_t mutex;
 
 /*

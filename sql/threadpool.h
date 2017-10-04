@@ -70,3 +70,5 @@ extern void tp_scheduler(void);
 
 extern int show_threadpool_idle_threads(THD *thd, SHOW_VAR *var, char *buff,
                                         enum enum_var_type scope);
+
+extern void *flusher_main(void *param);

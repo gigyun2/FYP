@@ -19,7 +19,7 @@
 #include <sql_class.h>
 #include <my_pthread.h>
 #include <scheduler.h>
-#include <log0log.h>
+#include "../storage/xtradb/include/log0log.h"
 
 #ifdef HAVE_POOL_OF_THREADS
 
@@ -1719,7 +1719,7 @@ void *flusher_main(void *param)
       int err;
       set_timespec(ts,threadpool_idle_timeout);
     
-      this_thread->woken = false; /* wake() sets this to true */
+      this_thread.woken = false; /* wake() sets this to true */
     
       /* 
         Add current thread to the head of the waiting list  and wait.
@@ -1731,16 +1731,16 @@ void *flusher_main(void *param)
       thread_group->active_thread_count--;
       if (abstime)
       {
-        err = mysql_cond_timedwait(&this_thread->cond, &thread_group->mutex, 
+        err = mysql_cond_timedwait(&this_thread.cond, &thread_group->mutex, 
                     abstime);
       }
       else
       {
-        err = mysql_cond_wait(&this_thread->cond, &thread_group->mutex);
+        err = mysql_cond_wait(&this_thread.cond, &thread_group->mutex);
       }
       thread_group->active_thread_count++;
       
-      if (!this_thread->woken)
+      if (!this_thread.woken)
       {
         /*
         Thread was not signalled by wake(), it might be a spurious wakeup or

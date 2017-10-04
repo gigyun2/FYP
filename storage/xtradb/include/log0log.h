@@ -56,6 +56,8 @@ flusher(
 /*=======================*/
 	void);
 
+mysql_cond_t proj_cond;
+
 /** Redo log buffer */
 struct log_t;
 /** Redo log group */
