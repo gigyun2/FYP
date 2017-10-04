@@ -19,6 +19,7 @@
 #include <sql_class.h>
 #include <my_pthread.h>
 #include <scheduler.h>
+#include <log0log.h>
 
 #ifdef HAVE_POOL_OF_THREADS
 
@@ -1685,3 +1686,85 @@ static void print_pool_blocked_message(bool max_threads_reached)
 }
 
 #endif /* HAVE_POOL_OF_THREADS */
+
+void *flusher_main(void *param)
+{
+  /* from worker_main */
+  worker_thread_t this_thread;
+  pthread_detach_this_thread();
+  my_thread_init();
+  
+  DBUG_ENTER("flusher_main");
+  
+  thread_group_t *thread_group = (thread_group_t *)param;
+
+  /* Init per-thread structure */
+  mysql_cond_init(key_worker_cond, &this_thread.cond, NULL);
+  mysql_cond_init(key_worker_cond, &proj_cond, NULL);
+  this_thread.thread_group= thread_group;
+  this_thread.event_count=0;
+
+  /* flush loop */
+  /* from log_write_up_to */
+  for (;;) {
+
+	if (++loop_count > 100) {
+    /* from get_event */
+    /* And now, finally sleep */ 
+    struct timespec ts;
+    int err;
+    set_timespec(ts,threadpool_idle_timeout);
+  
+    this_thread->woken = false; /* wake() sets this to true */
+  
+    /* 
+      Add current thread to the head of the waiting list  and wait.
+      It is important to add thread to the head rather than tail
+      as it ensures LIFO wakeup order (hot caches, working inactivity timeout)
+    */
+    thread_group->waiting_threads.push_front(this_thread);
+    
+    thread_group->active_thread_count--;
+    if (abstime)
+    {
+      err = mysql_cond_timedwait(&this_thread->cond, &thread_group->mutex, 
+                  abstime);
+    }
+    else
+    {
+      err = mysql_cond_wait(&this_thread->cond, &thread_group->mutex);
+    }
+    thread_group->active_thread_count++;
+    
+    if (!this_thread->woken)
+    {
+      /*
+      Thread was not signalled by wake(), it might be a spurious wakeup or
+      a timeout. Anyhow, we need to remove ourselves from the list now.
+      If thread was explicitly woken, than caller removed us from the list.
+      */
+      thread_group->waiting_threads.remove(this_thread);
+    }
+    
+    loop_count = 0;
+    }
+    
+    flusher();
+  }
+
+  /* Thread shutdown: cleanup per-worker-thread structure. */
+  mysql_cond_destroy(&this_thread.cond);
+
+  bool last_thread;                    /* last thread in group exits */
+  mysql_mutex_lock(&thread_group->mutex);
+  add_thread_count(thread_group, -1);
+  last_thread= ((thread_group->thread_count == 0) && thread_group->shutdown);
+  mysql_mutex_unlock(&thread_group->mutex);
+
+  /* Last thread in group exits and pool is terminating, destroy group.*/
+  if (last_thread)
+    thread_group_destroy(thread_group);
+
+  my_thread_end();
+  return NULL;
+}

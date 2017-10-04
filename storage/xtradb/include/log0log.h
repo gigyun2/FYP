@@ -52,7 +52,7 @@ typedef	ib_uint64_t		lsn_t;
 /************************************************************//**
 @return	end lsn of the log record, zero if did not succeed */
 void
-flusher_main(
+flusher(
 /*=======================*/
 	void);
 

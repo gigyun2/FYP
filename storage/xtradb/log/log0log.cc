@@ -68,9 +68,6 @@ Created 12/9/1995 Heikki Tuuri
 #include "trx0roll.h"
 #include "srv0mon.h"
 
-typedef struct st_mysql_show_var SHOW_VAR;
-#include "../../../sql/threadpool.h"
-
 mysql_cond_t proj_cond;
 
 /*
@@ -4174,87 +4171,29 @@ DECLARE_THREAD(log_scrub_thread)(void*)
 }
 #endif /* !UNIV_HOTBACKUP */
 
-void *flusher_main(void *param)
+void
+flusher()
 {
-  /* from worker_main */
-  worker_thread_t this_thread;
-  pthread_detach_this_thread();
-  my_thread_init();
-  
-  DBUG_ENTER("flusher_main");
-  
-  thread_group_t *thread_group = (thread_group_t *)param;
-
-  /* Init per-thread structure */
-  mysql_cond_init(key_worker_cond, &this_thread.cond, NULL);
-  mysql_cond_init(key_worker_cond, &proj_cond, NULL);
-  this_thread.thread_group= thread_group;
-  this_thread.event_count=0;
-
-  /* flush loop */
-  /* from log_write_up_to */
-  for(;;)
-  {
 	log_group_t*	group;
 	ulint		start_offset;
 	ulint		end_offset;
 	ulint		area_start;
 	ulint		area_end;
-// #ifdef UNIV_DEBUG
- 	ulint		loop_count	= 0;
-// #endif /* UNIV_DEBUG */
+	// #ifdef UNIV_DEBUG
+	ulint		loop_count	= 0;
+	// #endif /* UNIV_DEBUG */
 	ulint		unlock;
 	ib_uint64_t	write_lsn;
 	ib_uint64_t	flush_lsn;
 
-// loop:
+	// loop:
 	// ut_ad(++loop_count < 100);
-if (++loop_count > 100) {
-    /* from get_event */
-    /* And now, finally sleep */ 
-    struct timespec ts;
-    int err;
-    set_timespec(ts,threadpool_idle_timeout);
-
-    this_thread->woken = false; /* wake() sets this to true */
-
-    /* 
-      Add current thread to the head of the waiting list  and wait.
-      It is important to add thread to the head rather than tail
-      as it ensures LIFO wakeup order (hot caches, working inactivity timeout)
-    */
-    thread_group->waiting_threads.push_front(this_thread);
-    
-    thread_group->active_thread_count--;
-    if (abstime)
-    {
-      err = mysql_cond_timedwait(&this_thread->cond, &thread_group->mutex, 
-                                 abstime);
-    }
-    else
-    {
-      err = mysql_cond_wait(&this_thread->cond, &thread_group->mutex);
-    }
-    thread_group->active_thread_count++;
-    
-    if (!this_thread->woken)
-    {
-      /*
-        Thread was not signalled by wake(), it might be a spurious wakeup or
-        a timeout. Anyhow, we need to remove ourselves from the list now.
-        If thread was explicitly woken, than caller removed us from the list.
-      */
-      thread_group->waiting_threads.remove(this_thread);
-    }
-    
-    loop_count = 0;
-}
 
 	mutex_enter(&(log_sys->mutex));
 	ut_ad(!recv_no_log_write);
 
 	if (flush_to_disk
-	    && log_sys->flushed_to_disk_lsn >= lsn) {
+		&& log_sys->flushed_to_disk_lsn >= lsn) {
 
 		mutex_exit(&(log_sys->mutex));
 
@@ -4263,9 +4202,9 @@ if (++loop_count > 100) {
 	}
 
 	if (!flush_to_disk
-	    && (log_sys->written_to_all_lsn >= lsn
+		&& (log_sys->written_to_all_lsn >= lsn
 		|| (log_sys->written_to_some_lsn >= lsn
-		    && wait != LOG_WAIT_ALL_GROUPS))) {
+			&& wait != LOG_WAIT_ALL_GROUPS))) {
 
 		mutex_exit(&(log_sys->mutex));
 
@@ -4277,14 +4216,14 @@ if (++loop_count > 100) {
 		/* A write (+ possibly flush to disk) is running */
 
 		if (flush_to_disk
-		    && log_sys->current_flush_lsn >= lsn) {
+			&& log_sys->current_flush_lsn >= lsn) {
 			/* The write + flush will write enough: wait for it to complete */
 
 			goto do_waits;
 		}
 
 		if (!flush_to_disk
-		    && log_sys->write_lsn >= lsn) {
+			&& log_sys->write_lsn >= lsn) {
 			/* The write will write enough: wait for it to complete */
 
 			goto do_waits;
@@ -4297,11 +4236,11 @@ if (++loop_count > 100) {
 		os_event_wait(log_sys->no_flush_event);
 
 		//goto loop;
-        continue;
+		continue;
 	}
 
 	if (!flush_to_disk
-	    && log_sys->buf_free == log_sys->buf_next_to_write) {
+		&& log_sys->buf_free == log_sys->buf_next_to_write) {
 		/* Nothing to write and no flush to disk requested */
 
 		mutex_exit(&(log_sys->mutex));
@@ -4354,8 +4293,8 @@ if (++loop_count > 100) {
 	segment to write will not be changed by writers to the log */
 
 	ut_memcpy(log_sys->buf + area_end,
-		  log_sys->buf + area_end - OS_FILE_LOG_BLOCK_SIZE,
-		  OS_FILE_LOG_BLOCK_SIZE);
+			log_sys->buf + area_end - OS_FILE_LOG_BLOCK_SIZE,
+			OS_FILE_LOG_BLOCK_SIZE);
 
 	log_sys->buf_free += OS_FILE_LOG_BLOCK_SIZE;
 	log_sys->write_end_offset = log_sys->buf_free;
@@ -4369,7 +4308,7 @@ if (++loop_count > 100) {
 			group, log_sys->buf + area_start,
 			area_end - area_start,
 			ut_uint64_align_down(log_sys->written_to_all_lsn,
-					     OS_FILE_LOG_BLOCK_SIZE),
+						OS_FILE_LOG_BLOCK_SIZE),
 			start_offset - area_start);
 
 		log_group_set_fields(group, log_sys->write_lsn);
@@ -4419,7 +4358,7 @@ if (++loop_count > 100) {
 	// return;
 	mysql_cond_broadcast(&proj_cond);
 
-do_waits:
+	do_waits:
 	mutex_exit(&(log_sys->mutex));
 
 	switch (wait) {
@@ -4429,28 +4368,11 @@ do_waits:
 	case LOG_WAIT_ALL_GROUPS:
 		os_event_wait(log_sys->no_flush_event);
 		break;
-#ifdef UNIV_DEBUG
+	#ifdef UNIV_DEBUG
 	case LOG_NO_WAIT:
 		break;
 	default:
 		ut_error;
-#endif /* UNIV_DEBUG */
+	#endif /* UNIV_DEBUG */
 	}
-  }
-
-  /* Thread shutdown: cleanup per-worker-thread structure. */
-  mysql_cond_destroy(&this_thread.cond);
-
-  bool last_thread;                    /* last thread in group exits */
-  mysql_mutex_lock(&thread_group->mutex);
-  add_thread_count(thread_group, -1);
-  last_thread= ((thread_group->thread_count == 0) && thread_group->shutdown);
-  mysql_mutex_unlock(&thread_group->mutex);
-
-  /* Last thread in group exits and pool is terminating, destroy group.*/
-  if (last_thread)
-    thread_group_destroy(thread_group);
-
-  my_thread_end();
-  return NULL;
 }
