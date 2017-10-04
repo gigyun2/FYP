@@ -19,7 +19,7 @@
 #include <sql_class.h>
 #include <my_pthread.h>
 #include <scheduler.h>
-#include "../storage/xtradb/include/log0log.h"
+#include "../storage/xtradb/include/log0flush.h"
 
 #ifdef HAVE_POOL_OF_THREADS
 
@@ -1690,7 +1690,7 @@ static void print_pool_blocked_message(bool max_threads_reached)
 void *flusher_main(void *param)
 {
 // #ifdef UNIV_DEBUG
-	ulint		loop_count	= 0;
+	int		loop_count	= 0;
 // #endif /* UNIV_DEBUG */
   
   /* from worker_main */
@@ -1726,13 +1726,13 @@ void *flusher_main(void *param)
         It is important to add thread to the head rather than tail
         as it ensures LIFO wakeup order (hot caches, working inactivity timeout)
       */
-      thread_group->waiting_threads.push_front(this_thread);
+      thread_group->waiting_threads.push_front(&this_thread);
       
       thread_group->active_thread_count--;
-      if (abstime)
+      if (&ts)
       {
         err = mysql_cond_timedwait(&this_thread.cond, &thread_group->mutex, 
-                    abstime);
+                    &ts);
       }
       else
       {
@@ -1747,7 +1747,7 @@ void *flusher_main(void *param)
         a timeout. Anyhow, we need to remove ourselves from the list now.
         If thread was explicitly woken, than caller removed us from the list.
         */
-        thread_group->waiting_threads.remove(this_thread);
+        thread_group->waiting_threads.remove(&this_thread);
       }
       
       loop_count = 0;
