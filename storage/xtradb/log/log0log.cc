@@ -179,6 +179,77 @@ the previous */
 #define	LOG_ARCHIVE_READ	1
 #define	LOG_ARCHIVE_WRITE	2
 
+
+// make fine-grained queue
+struct LSN_INFO {
+	lsn_t lsn;
+	ibool flush_to_disk;
+};
+
+struct Node {
+	LSN_INFO key;
+	Node *next;
+	pthread_mutex_t mutex;
+};
+
+// need to re-define
+Node *head;
+Node *tail;
+
+bool list_add(Node* head, LSN_INFO key) {
+	Node* node = (Node*)malloc(sizeof(Node));
+	node->key = key;
+
+	Node* prev = head;
+	pthread_mutex_lock(&prev->mutex);
+	Node* curr = head->next;
+	pthread_mutex_lock(&curr->mutex);
+
+	while (curr->key.lsn < key.lsn) {
+		pthread_mutex_unlock(&prev->mutex);
+		prev = curr;
+		curr = curr->next;
+		pthread_mutex_lock(&curr->mutex);
+	}
+
+	if(curr->key.lsn == key.lsn) {
+		pthread_mutex_unlock(&prev->mutex);
+		pthread_mutex_unlock(&curr->mutex);
+		return false;
+	}
+	prev->next = node;
+	node->next = curr;
+
+	pthread_mutex_unlock(&prev->mutex);
+	pthread_mutex_unlock(&curr->mutex);
+
+	return true;
+}
+
+bool list_remove(Node* head) {
+	Node* prev = head;
+	pthread_mutex_lock(&prev->mutex);
+	Node* curr = head->next;
+	pthread_mutex_lock(&curr->mutex);
+
+	while(curr != tail) {
+		pthread_mutex_unlock(&prev->mutex);
+		pthread_mutex_unlock(&curr->mutex);
+
+		return curr;
+	}
+}
+
+void list_init(Node** head, Node** tail) {
+	*head = (Node*)malloc(sizeof(Node));
+	(*head)->key.lsn = 0;
+	*tail = (Node*)malloc(sizeof(Node));
+	(*tail)->key.lsn = -1;
+
+	(*head)->next = *tail;
+	(*tail)->next = NULL;
+}
+
 /** Event to wake up the log scrub thread */
 static os_event_t log_scrub_event;
 
@@ -1594,6 +1665,11 @@ log_write_up_to(
 	}
 
     // make flusher_main to work
+	LSN_INFO flush_param;
+	if (head == NULL) {
+		list_init(&head, &tail);
+	}
+	list_add(head, flush_param);
 	mysql_cond_signal(&proj_cond);
     // cond_wait until flusher wakes up
 	do {
