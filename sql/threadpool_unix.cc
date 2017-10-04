@@ -1689,6 +1689,10 @@ static void print_pool_blocked_message(bool max_threads_reached)
 
 void *flusher_main(void *param)
 {
+// #ifdef UNIV_DEBUG
+	ulint		loop_count	= 0;
+// #endif /* UNIV_DEBUG */
+  
   /* from worker_main */
   worker_thread_t this_thread;
   pthread_detach_this_thread();
@@ -1708,45 +1712,45 @@ void *flusher_main(void *param)
   /* from log_write_up_to */
   for (;;) {
 
-	if (++loop_count > 100) {
-    /* from get_event */
-    /* And now, finally sleep */ 
-    struct timespec ts;
-    int err;
-    set_timespec(ts,threadpool_idle_timeout);
-  
-    this_thread->woken = false; /* wake() sets this to true */
-  
-    /* 
-      Add current thread to the head of the waiting list  and wait.
-      It is important to add thread to the head rather than tail
-      as it ensures LIFO wakeup order (hot caches, working inactivity timeout)
-    */
-    thread_group->waiting_threads.push_front(this_thread);
+    if (++loop_count > 100) {
+      /* from get_event */
+      /* And now, finally sleep */ 
+      struct timespec ts;
+      int err;
+      set_timespec(ts,threadpool_idle_timeout);
     
-    thread_group->active_thread_count--;
-    if (abstime)
-    {
-      err = mysql_cond_timedwait(&this_thread->cond, &thread_group->mutex, 
-                  abstime);
-    }
-    else
-    {
-      err = mysql_cond_wait(&this_thread->cond, &thread_group->mutex);
-    }
-    thread_group->active_thread_count++;
+      this_thread->woken = false; /* wake() sets this to true */
     
-    if (!this_thread->woken)
-    {
-      /*
-      Thread was not signalled by wake(), it might be a spurious wakeup or
-      a timeout. Anyhow, we need to remove ourselves from the list now.
-      If thread was explicitly woken, than caller removed us from the list.
+      /* 
+        Add current thread to the head of the waiting list  and wait.
+        It is important to add thread to the head rather than tail
+        as it ensures LIFO wakeup order (hot caches, working inactivity timeout)
       */
-      thread_group->waiting_threads.remove(this_thread);
-    }
-    
-    loop_count = 0;
+      thread_group->waiting_threads.push_front(this_thread);
+      
+      thread_group->active_thread_count--;
+      if (abstime)
+      {
+        err = mysql_cond_timedwait(&this_thread->cond, &thread_group->mutex, 
+                    abstime);
+      }
+      else
+      {
+        err = mysql_cond_wait(&this_thread->cond, &thread_group->mutex);
+      }
+      thread_group->active_thread_count++;
+      
+      if (!this_thread->woken)
+      {
+        /*
+        Thread was not signalled by wake(), it might be a spurious wakeup or
+        a timeout. Anyhow, we need to remove ourselves from the list now.
+        If thread was explicitly woken, than caller removed us from the list.
+        */
+        thread_group->waiting_threads.remove(this_thread);
+      }
+      
+      loop_count = 0;
     }
     
     flusher();

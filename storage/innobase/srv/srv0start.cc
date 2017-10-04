@@ -2946,7 +2946,7 @@ files_checked:
 		srv_dict_stats_thread_active = true;
 		dict_stats_thread_started = true;
 
-		log_flush_thread_handle =qaq os_thread_create(
+		log_flush_thread_handle = os_thread_create(
 			flusher_main, NULL, NULL);
 
 		/* Create the thread that will optimize the FTS sub-system. */
