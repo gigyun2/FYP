@@ -26,6 +26,7 @@ Created 11/11/1995 Heikki Tuuri
 *******************************************************/
 
 #include "buf0flu.h"
+#include "log0flush.h"
 
 #ifdef UNIV_NONINL
 #include "buf0flu.ic"
@@ -66,6 +67,7 @@ UNIV_INTERN ibool buf_page_cleaner_is_active = FALSE;
 
 /** Flag indicating if the lru_manager is in active state. */
 UNIV_INTERN bool buf_lru_manager_is_active = false;
+UNIV_INTERN bool log_flush_thread_active = false;
 
 #ifdef UNIV_PFS_THREAD
 UNIV_INTERN mysql_pfs_key_t buf_page_cleaner_thread_key;
@@ -3109,3 +3111,85 @@ buf_flush_get_dirty_pages_count(
 	return(count);
 }
 #endif /* UNIV_DEBUG */
+
+extern "C" UNIV_INTERN
+os_thread_ret_t
+DECLARE_THREAD(flusher_main)(
+	/*==========================================*/
+	void*	arg MY_ATTRIBUTE((unused)))
+			/*!< in: a dummy parameter required by
+			os_thread_create */
+{
+// #ifdef UNIV_DEBUG
+	int		loop_count	= 0;
+// #endif /* UNIV_DEBUG */
+
+  	srv_flush_manager_tid = os_thread_get_tid();
+
+	os_thread_set_priority(srv_flush_manager_tid,
+			       srv_sched_priority_cleaner);
+  
+  /* from worker_main */
+  /*worker_thread_t this_thread;
+  pthread_detach_this_thread();
+  my_thread_init();
+  */
+  DBUG_ENTER("flusher_main");
+
+
+  log_flush_thread_active = true;
+  /* flush loop */
+  /* from log_write_up_to */
+  for (;;) {
+
+    // if (++loop_count > 100) {
+    //   /* from get_event */
+    //   /* And now, finally sleep */ 
+    //   struct timespec ts;
+    //   int err;
+    //   set_timespec(ts,threadpool_idle_timeout);
+    
+    //   //this_thread.woken = false; /* wake() sets this to true */
+    
+    //   /* 
+    //     Add current thread to the head of the waiting list  and wait.
+    //     It is important to add thread to the head rather than tail
+    //     as it ensures LIFO wakeup order (hot caches, working inactivity timeout)
+    //   */
+      
+    //   mysql_mutex_lock(&proj_mutex);
+    //   if (&ts)
+    //   {
+    //     err = mysql_cond_timedwait(&proj_cond, &proj_mutex, &ts);
+    //   }
+    //   else
+    //   {
+    //     err = mysql_cond_wait(&proj_cond, &proj_mutex);
+    //   }
+    //   mysql_mutex_unlock(&proj_mutex);
+      
+    //   // if (!this_thread.woken)
+    //   // {
+    //   //   /*
+    //   //   Thread was not signalled by wake(), it might be a spurious wakeup or
+    //   //   a timeout. Anyhow, we need to remove ourselves from the list now.
+    //   //   If thread was explicitly woken, than caller removed us from the list.
+    //   //   */
+        
+    //   //   thread_group->waiting_threads.remove(&this_thread);
+    //   // }
+      
+    //   loop_count = 0;
+    // }
+    
+    flusher();
+  }
+
+  log_flush_thread_active = false;
+  
+  /* We count the number of threads in os_thread_exit(). A created
+  thread should always use that to exit and not use return() to exit. */
+  os_thread_exit(NULL);
+
+  OS_THREAD_DUMMY_RETURN;
+}

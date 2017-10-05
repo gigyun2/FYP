@@ -171,6 +171,7 @@ static os_thread_t	dict_stats_thread_handle;
 static os_thread_t	buf_flush_lru_manager_thread_handle;
 static os_thread_t	srv_redo_log_follow_thread_handle;
 static os_thread_t	log_flush_thread_handle;
+
 /** Status variables, is thread started ?*/
 static bool		thread_started[SRV_MAX_N_IO_THREADS + 7 + SRV_MAX_N_PURGE_THREADS] = {false};
 static bool		buf_flush_page_cleaner_thread_started = false;
@@ -178,6 +179,7 @@ static bool		buf_dump_thread_started = false;
 static bool		dict_stats_thread_started = false;
 static bool		buf_flush_lru_manager_thread_started = false;
 static bool		srv_redo_log_follow_thread_started = false;
+static bool		log_flush_thread_started = false;
 
 /** We use this mutex to test the return value of pthread_mutex_trylock
    on successful locking. HP-UX does NOT return 0, though Linux et al do. */
@@ -204,6 +206,8 @@ UNIV_INTERN mysql_pfs_key_t	srv_monitor_thread_key;
 UNIV_INTERN mysql_pfs_key_t	srv_master_thread_key;
 UNIV_INTERN mysql_pfs_key_t	srv_purge_thread_key;
 UNIV_INTERN mysql_pfs_key_t	srv_log_tracking_thread_key;
+UNIV_INTERN mysql_pfs_key_t srv_log_flush_thread_key;
+
 #endif /* UNIV_PFS_THREAD */
 
 /*********************************************************************//**
@@ -2992,7 +2996,7 @@ files_checked:
 	buf_flush_lru_manager_thread_started = true;
 
 	log_flush_thread_handle = os_thread_create(flusher_main, NULL, NULL);
-	// TODO: started 변수 추가
+	log_flush_thread_started = true;
 
 	if (!srv_file_per_table && srv_pass_corrupt_table) {
 		fprintf(stderr, "InnoDB: Warning:"
@@ -3274,6 +3278,10 @@ innobase_shutdown_for_mysql(void)
 
 		if (srv_redo_log_follow_thread_started) {
 			CloseHandle(srv_redo_log_follow_thread_handle);
+		}
+
+		if (log_flush_thread_started) {
+			CloseHandle(log_flush_thread_handle);
 		}
 	}
 #endif /* __WIN __ */

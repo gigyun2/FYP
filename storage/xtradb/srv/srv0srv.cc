@@ -409,6 +409,8 @@ UNIV_INTERN ulong	srv_flushing_avg_loops		= 30;
 /* The tid of the cleaner thread */
 UNIV_INTERN os_tid_t	srv_cleaner_tid;
 
+UNIV_INTERN os_tid_t	srv_flush_manager_tid;
+
 /* The tid of the LRU manager thread */
 UNIV_INTERN os_tid_t	srv_lru_manager_tid;
 

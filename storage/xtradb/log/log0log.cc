@@ -181,6 +181,8 @@ the previous */
 #define	LOG_ARCHIVE_WRITE	2
 
 
+
+
 // make fine-grained queue
 struct LSN_INFO {
 	lsn_t lsn;
@@ -202,9 +204,13 @@ bool list_add(Node* head, LSN_INFO key) {
 	Node* node = (Node*)malloc(sizeof(Node));
 	node->key = key;
 
+	node->mutex = PTHREAD_MUTEX_INITIALIZER;
+
 	Node* prev = head;
+	//ib_logf(IB_LOG_LEVEL_INFO, "list_add ");
 	pthread_mutex_lock(&prev->mutex);
 	Node* curr = head->next;
+	//ib_logf(IB_LOG_LEVEL_INFO, "list_add success");
 	pthread_mutex_lock(&curr->mutex);
 
 	while (curr->key.lsn < key.lsn) {
@@ -230,21 +236,26 @@ bool list_add(Node* head, LSN_INFO key) {
 
 LSN_INFO list_remove(Node* head) {
 	Node* prev = head;
+	//ib_logf(IB_LOG_LEVEL_INFO, "list_remove ");
 	pthread_mutex_lock(&prev->mutex);
 	Node* curr = head->next;
+	//ib_logf(IB_LOG_LEVEL_INFO, "list_remove success");
 	pthread_mutex_lock(&curr->mutex);
 
-	while(curr != tail) {
+	if(curr != tail) {
+		LSN_INFO return_info = curr->key;
+		prev->next = curr->next;
+
 		pthread_mutex_unlock(&prev->mutex);
 		pthread_mutex_unlock(&curr->mutex);
-
-		LSN_INFO return_info = curr->key;
 
 		free(curr);
 		return return_info;
 	}
 
 	// empty
+	pthread_mutex_unlock(&prev->mutex);
+	pthread_mutex_unlock(&curr->mutex);
 	LSN_INFO return_info;
 	return_info.lsn = -1;
 	return return_info;
@@ -255,6 +266,10 @@ void list_init(Node** head, Node** tail) {
 	(*head)->key.lsn = 0;
 	*tail = (Node*)malloc(sizeof(Node));
 	(*tail)->key.lsn = -1;
+
+
+	(*head)->mutex = PTHREAD_MUTEX_INITIALIZER;
+	(*tail)->mutex = PTHREAD_MUTEX_INITIALIZER;
 
 	(*head)->next = *tail;
 	(*tail)->next = NULL;
@@ -1680,18 +1695,21 @@ log_write_up_to(
 
 	if (head == NULL) {
 		list_init(&head, &tail);
+		//mysql_cond_init(key_proj_cond, &proj_cond, NULL);
+		//mysql_mutex_init(key_proj_mutex, &proj_mutex, NULL);
 	}
 
 	list_add(head, flush_param);
 	
-	mysql_cond_signal(&proj_cond);
-
+	
     // cond_wait until flusher wakes up
-	mysql_mutex_lock(&proj_mutex);
+	// mysql_mutex_lock(&proj_mutex);
+	// mysql_cond_signal(&proj_cond);
 	do {
-		mysql_cond_wait(&proj_cond, &proj_mutex);
-	} while (lsn);
-	mysql_mutex_unlock(&proj_mutex);
+		printf("%d", log_sys->write_lsn);
+		// mysql_cond_wait(&proj_cond, &proj_mutex);
+	} while (lsn > log_sys->write_lsn);
+	// mysql_mutex_unlock(&proj_mutex);
 
 // loop:
 // 	ut_ad(++loop_count < 100);
@@ -4295,7 +4313,9 @@ flusher()
 		mutex_exit(&(log_sys->mutex));
 
 		// return;
+		mysql_mutex_lock(&proj_mutex);
 		mysql_cond_broadcast(&proj_cond);
+		mysql_mutex_unlock(&proj_mutex);
 	}
 
 	if (!flush_to_disk
@@ -4306,7 +4326,9 @@ flusher()
 		mutex_exit(&(log_sys->mutex));
 
 		// return;
+		mysql_mutex_lock(&proj_mutex);
 		mysql_cond_broadcast(&proj_cond);
+		mysql_mutex_unlock(&proj_mutex);
 	}
 
 	if (log_sys->n_pending_writes > 0) {
@@ -4340,7 +4362,9 @@ flusher()
 		mutex_exit(&(log_sys->mutex));
 
 		// return;
+		mysql_mutex_lock(&proj_mutex);
 		mysql_cond_broadcast(&proj_cond);
+		mysql_mutex_unlock(&proj_mutex);
 	}
 
 #ifdef UNIV_DEBUG
@@ -4450,7 +4474,9 @@ flusher()
 	innobase_mysql_log_notify(write_lsn, flush_lsn);
 
 	// return;
+	mysql_mutex_lock(&proj_mutex);
 	mysql_cond_broadcast(&proj_cond);
+	mysql_mutex_unlock(&proj_mutex);
 
 	do_waits:
 	mutex_exit(&(log_sys->mutex));
@@ -4470,3 +4496,119 @@ flusher()
 	#endif /* UNIV_DEBUG */
 	}
 }
+// void *flusher_main(void *param)
+// {
+// // #ifdef UNIV_DEBUG
+// 	int		loop_count	= 0;
+// // #endif /* UNIV_DEBUG */
+
+//   srv_flush_manager_tid = os_thread_get_tid();
+
+// 	os_thread_set_priority(srv_flush_manager_tid,
+// 			       srv_sched_priority_cleaner);
+  
+//   /* from worker_main */
+//   /*worker_thread_t this_thread;
+//   pthread_detach_this_thread();
+//   my_thread_init();
+//   */
+//   DBUG_ENTER("flusher_main");
+
+//   /* Init per-thread structure */
+//   //mysql_cond_init(key_proj_cond, &this_thread.cond, NULL);
+//   mysql_cond_init(key_proj_cond, &proj_cond, NULL);
+//   mysql_mutex_init(key_proj_mutex, &proj_mutex, NULL);
+  
+//   this_thread.thread_group= thread_group;
+//   this_thread.event_count=0;
+
+
+//   log_flush_thread_started = true;
+//   /* flush loop */
+//   /* from log_write_up_to */
+//   for (;;) {
+
+//     // if (++loop_count > 100) {
+//     //   /* from get_event */
+//     //   /* And now, finally sleep */ 
+//     //   struct timespec ts;
+//     //   int err;
+//     //   set_timespec(ts,threadpool_idle_timeout);
+    
+//     //   //this_thread.woken = false; /* wake() sets this to true */
+    
+//     //   /* 
+//     //     Add current thread to the head of the waiting list  and wait.
+//     //     It is important to add thread to the head rather than tail
+//     //     as it ensures LIFO wakeup order (hot caches, working inactivity timeout)
+//     //   */
+      
+//     //   mysql_mutex_lock(&proj_mutex);
+//     //   if (&ts)
+//     //   {
+//     //     err = mysql_cond_timedwait(&proj_cond, &proj_mutex, &ts);
+//     //   }
+//     //   else
+//     //   {
+//     //     err = mysql_cond_wait(&proj_cond, &proj_mutex);
+//     //   }
+//     //   mysql_mutex_unlock(&proj_mutex);
+      
+//     //   // if (!this_thread.woken)
+//     //   // {
+//     /
+//     flusher();
+//   }
+
+//   /* Thread shutdown: cleanup per-worker-thread structure. */
+//   //mysql_cond_destroy(&this_thread.cond);
+//   bool last_thread;                    /* last thread in group exits */
+//   mysql_mutex_lock(&thread_group->mutex);
+//   add_thread_count(thread_group, -1);
+//   last_thread= ((thread_group->thread_count == 0) && thread_group->shutdown);
+//   mysql_mutex_unlock(&thread_group->mutex);
+
+//   /* Last thread in group exits and pool is terminating, destroy group.*/
+//   if (last_thread)
+//     thread_group_destroy(thread_group);
+
+//   my_thread_end();
+//   return NULL;
+
+//   buf_lru_manager_is_active = false;
+  
+//   /* We count the number of threads in os_thread_exit(). A created
+//   thread should always use that to exit and not use return() to exit. */
+//   os_thread_exit(NULL);
+
+//   OS_THREAD_DUMMY_RETURN;
+// } 
+//     //   loop_count = 0;
+//     // }
+    
+//     flusher();
+//   }
+
+//   /* Thread shutdown: cleanup per-worker-thread structure. */
+//   //mysql_cond_destroy(&this_thread.cond);
+//   bool last_thread;                    /* last thread in group exits */
+//   mysql_mutex_lock(&thread_group->mutex);
+//   add_thread_count(thread_group, -1);
+//   last_thread= ((thread_group->thread_count == 0) && thread_group->shutdown);
+//   mysql_mutex_unlock(&thread_group->mutex);
+
+//   /* Last thread in group exits and pool is terminating, destroy group.*/
+//   if (last_thread)
+//     thread_group_destroy(thread_group);
+
+//   my_thread_end();
+//   return NULL;
+
+//   buf_lru_manager_is_active = false;
+  
+//   /* We count the number of threads in os_thread_exit(). A created
+//   thread should always use that to exit and not use return() to exit. */
+//   os_thread_exit(NULL);
+
+//   OS_THREAD_DUMMY_RETURN;
+// }

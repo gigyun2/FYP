@@ -664,6 +664,8 @@ extern const char* srv_io_thread_function[];
 /* The tid of the cleaner thread */
 extern os_tid_t	srv_cleaner_tid;
 
+extern os_tid_t srv_flush_manager_tid;
+
 /* The tid of the LRU manager thread */
 extern os_tid_t srv_lru_manager_tid;
 

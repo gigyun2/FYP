@@ -205,6 +205,15 @@ DECLARE_THREAD(buf_flush_lru_manager_thread)(
 /*=========================================*/
 	void*	arg);		/*!< in: a dummy parameter required by
 				os_thread_create */
+
+extern "C" UNIV_INTERN
+os_thread_ret_t
+DECLARE_THREAD(flusher_main)(
+	/*==========================================*/
+	void*	arg);
+			/*!< in: a dummy parameter required by
+			os_thread_create */
+
 /*********************************************************************//**
 Clears up tail of the LRU lists:
 * Put replaceable pages at the tail of LRU to the free list
