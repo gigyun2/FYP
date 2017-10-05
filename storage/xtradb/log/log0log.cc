@@ -42,7 +42,6 @@ Created 12/9/1995 Heikki Tuuri
 // #define DEBUG_CRYPT 1
 
 #include "log0log.h"
-#include "log0flush.h"
 
 #ifdef UNIV_NONINL
 #include "log0log.ic"
@@ -68,6 +67,9 @@ Created 12/9/1995 Heikki Tuuri
 #include "trx0trx.h"
 #include "trx0roll.h"
 #include "srv0mon.h"
+
+mysql_cond_t proj_cond;
+mysql_mutex_t mutex;
 
 /*
 General philosophy of InnoDB redo-logs:

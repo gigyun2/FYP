@@ -4,6 +4,3 @@ void
 flusher(
 /*=======================*/
 	void);
-
-mysql_cond_t proj_cond;
-mysql_mutex_t mutex;

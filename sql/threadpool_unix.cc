@@ -49,6 +49,9 @@ typedef port_event_t native_event;
 /** Indicates that threadpool was initialized*/
 static bool threadpool_started= false; 
 
+extern mysql_cond_t proj_cond;
+extern mysql_mutex_t mutex;
+
 /* 
   Define PSI Keys for performance schema. 
   We have a mutex per group, worker threads, condition per worker thread, 
