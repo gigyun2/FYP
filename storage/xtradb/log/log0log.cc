@@ -30,7 +30,7 @@ Database log
 
 Created 12/9/1995 Heikki Tuuri
 *******************************************************/
-
+#include <log.h>
 #include "config.h"
 #ifdef HAVE_ALLOCA_H
 #include "alloca.h"
@@ -69,7 +69,7 @@ Created 12/9/1995 Heikki Tuuri
 #include "srv0mon.h"
 
 mysql_cond_t proj_cond;
-mysql_mutex_t mutex;
+mysql_mutex_t proj_mutex;
 
 /*
 General philosophy of InnoDB redo-logs:
@@ -1685,10 +1685,13 @@ log_write_up_to(
 	list_add(head, flush_param);
 	
 	mysql_cond_signal(&proj_cond);
+
     // cond_wait until flusher wakes up
+	mysql_mutex_lock(&proj_mutex);
 	do {
-		mysql_cond_wait(&proj_cond, &mutex);
+		mysql_cond_wait(&proj_cond, &proj_mutex);
 	} while (lsn);
+	mysql_mutex_unlock(&proj_mutex);
 
 // loop:
 // 	ut_ad(++loop_count < 100);

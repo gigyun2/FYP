@@ -50,7 +50,7 @@ typedef port_event_t native_event;
 static bool threadpool_started= false; 
 
 extern mysql_cond_t proj_cond;
-extern mysql_mutex_t mutex;
+extern mysql_mutex_t proj_mutex;
 
 /* 
   Define PSI Keys for performance schema. 
@@ -1703,14 +1703,13 @@ void *flusher_main(void *param)
   
   DBUG_ENTER("flusher_main");
   
-  thread_group_t *thread_group = (thread_group_t *)param;
+  thread_group_t *thread_group = this_thread.thread_group;
 
   /* Init per-thread structure */
-  mysql_cond_init(key_worker_cond, &this_thread.cond, NULL);
+  //mysql_cond_init(key_worker_cond, &this_thread.cond, NULL);
   mysql_cond_init(key_worker_cond, &proj_cond, NULL);
   this_thread.thread_group= thread_group;
   this_thread.event_count=0;
-
   /* flush loop */
   /* from log_write_up_to */
   for (;;) {
@@ -1731,16 +1730,17 @@ void *flusher_main(void *param)
       */
       thread_group->waiting_threads.push_front(&this_thread);
       
+      mysql_mutex_lock(&proj_mutex);
       thread_group->active_thread_count--;
       if (&ts)
       {
-        err = mysql_cond_timedwait(&this_thread.cond, &thread_group->mutex, 
-                    &ts);
+        err = mysql_cond_timedwait(&proj_cond, &proj_mutex, &ts);
       }
       else
       {
-        err = mysql_cond_wait(&this_thread.cond, &thread_group->mutex);
+        err = mysql_cond_wait(&proj_cond, &proj_mutex);
       }
+      mysql_mutex_unlock(&proj_mutex);
       thread_group->active_thread_count++;
       
       if (!this_thread.woken)
@@ -1750,6 +1750,7 @@ void *flusher_main(void *param)
         a timeout. Anyhow, we need to remove ourselves from the list now.
         If thread was explicitly woken, than caller removed us from the list.
         */
+        
         thread_group->waiting_threads.remove(&this_thread);
       }
       
@@ -1760,8 +1761,7 @@ void *flusher_main(void *param)
   }
 
   /* Thread shutdown: cleanup per-worker-thread structure. */
-  mysql_cond_destroy(&this_thread.cond);
-
+  //mysql_cond_destroy(&this_thread.cond);
   bool last_thread;                    /* last thread in group exits */
   mysql_mutex_lock(&thread_group->mutex);
   add_thread_count(thread_group, -1);

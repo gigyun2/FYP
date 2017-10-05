@@ -25,6 +25,7 @@
         "groonga.c": "cpp",
         "async_queries.c": "cpp",
         "zutil.c": "cpp",
-        "pcre_jit_compile.c": "cpp"
+        "pcre_jit_compile.c": "cpp",
+        "*.tcc": "cpp"
     }
 }

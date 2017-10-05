@@ -2991,6 +2991,9 @@ files_checked:
 	buf_flush_lru_manager_thread_handle = os_thread_create(buf_flush_lru_manager_thread, NULL, NULL);
 	buf_flush_lru_manager_thread_started = true;
 
+	log_flush_thread_handle = os_thread_create(flusher_main, NULL, NULL);
+	// TODO: started 변수 추가
+
 	if (!srv_file_per_table && srv_pass_corrupt_table) {
 		fprintf(stderr, "InnoDB: Warning:"
 			" The option innodb_file_per_table is disabled,"
@@ -3055,9 +3058,6 @@ files_checked:
 			dict_stats_thread, NULL, NULL);
 		srv_dict_stats_thread_active = true;
 		dict_stats_thread_started = true;
-
-		log_flush_thread_handle = os_thread_create(
-			flusher_main, NULL, NULL);
 
 		/* Create the thread that will optimize the FTS sub-system. */
 		fts_optimize_init();
