@@ -3144,8 +3144,7 @@ DECLARE_THREAD(flusher_main)(
 
   log_flush_thread_active = true;
   
-  while (srv_shutdown_state == SRV_SHUTDOWN_NONE
-	|| srv_shutdown_state == SRV_SHUTDOWN_CLEANUP) {
+  while (srv_shutdown_state != SRV_SHUTDOWN_EXIT_THREADS) {
 
     // if (++loop_count > 100) {
     //   /* from get_event */
@@ -3193,6 +3192,9 @@ DECLARE_THREAD(flusher_main)(
   ib_logf(IB_LOG_LEVEL_INFO, "flusher off..");
   log_flush_thread_active = false;
   
+  os_thread_set_priority(srv_flush_manager_tid,
+	1);
+
   mysql_mutex_destroy(&proj_mutex);
   mysql_cond_destroy(&proj_cond);
   
