@@ -2886,6 +2886,7 @@ DECLARE_THREAD(buf_flush_page_cleaner_thread)(
 	/* We have lived our life. Time to die. */
 
 thread_exit:
+	ib_logf(IB_LOG_LEVEL_INFO, "lru_manager off..");
 	buf_page_cleaner_is_active = FALSE;
 
 	/* We count the number of threads in os_thread_exit(). A created
@@ -2944,6 +2945,7 @@ DECLARE_THREAD(buf_flush_lru_manager_thread)(
 		lru_n_flushed = buf_flush_LRU_tail();
 	}
 
+	ib_logf(IB_LOG_LEVEL_INFO, "lru_manager off..");
 	buf_lru_manager_is_active = false;
 
 	/* We count the number of threads in os_thread_exit(). A created
@@ -3112,6 +3114,9 @@ buf_flush_get_dirty_pages_count(
 }
 #endif /* UNIV_DEBUG */
 
+extern mysql_cond_t proj_cond;
+extern mysql_mutex_t proj_mutex;
+
 extern "C" UNIV_INTERN
 os_thread_ret_t
 DECLARE_THREAD(flusher_main)(
@@ -3138,9 +3143,9 @@ DECLARE_THREAD(flusher_main)(
 
 
   log_flush_thread_active = true;
-  /* flush loop */
-  /* from log_write_up_to */
-  for (;;) {
+  
+  while (srv_shutdown_state == SRV_SHUTDOWN_NONE
+	|| srv_shutdown_state == SRV_SHUTDOWN_CLEANUP) {
 
     // if (++loop_count > 100) {
     //   /* from get_event */
@@ -3185,7 +3190,11 @@ DECLARE_THREAD(flusher_main)(
     flusher();
   }
 
+  ib_logf(IB_LOG_LEVEL_INFO, "flusher off..");
   log_flush_thread_active = false;
+  
+  mysql_mutex_destroy(&proj_mutex);
+  mysql_cond_destroy(&proj_cond);
   
   /* We count the number of threads in os_thread_exit(). A created
   thread should always use that to exit and not use return() to exit. */

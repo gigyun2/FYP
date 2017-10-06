@@ -207,10 +207,8 @@ bool list_add(Node* head, LSN_INFO key) {
 	node->mutex = PTHREAD_MUTEX_INITIALIZER;
 
 	Node* prev = head;
-	//ib_logf(IB_LOG_LEVEL_INFO, "list_add ");
 	pthread_mutex_lock(&prev->mutex);
 	Node* curr = head->next;
-	//ib_logf(IB_LOG_LEVEL_INFO, "list_add success");
 	pthread_mutex_lock(&curr->mutex);
 
 	while (curr->key.lsn < key.lsn) {
@@ -231,24 +229,24 @@ bool list_add(Node* head, LSN_INFO key) {
 	pthread_mutex_unlock(&prev->mutex);
 	pthread_mutex_unlock(&curr->mutex);
 
+	ib_logf(IB_LOG_LEVEL_INFO, "add %x", node);
 	return true;
 }
 
 LSN_INFO list_remove(Node* head) {
 	Node* prev = head;
-	//ib_logf(IB_LOG_LEVEL_INFO, "list_remove ");
 	pthread_mutex_lock(&prev->mutex);
 	Node* curr = head->next;
-	//ib_logf(IB_LOG_LEVEL_INFO, "list_remove success");
 	pthread_mutex_lock(&curr->mutex);
 
-	if(curr != tail) {
+	if (curr != tail) {
 		LSN_INFO return_info = curr->key;
 		prev->next = curr->next;
 
 		pthread_mutex_unlock(&prev->mutex);
 		pthread_mutex_unlock(&curr->mutex);
 
+		ib_logf(IB_LOG_LEVEL_INFO, "remove %x", curr);
 		free(curr);
 		return return_info;
 	}
@@ -1677,6 +1675,8 @@ log_write_up_to(
 	ib_uint64_t	write_lsn;
 	ib_uint64_t	flush_lsn;
 
+	ib_logf(IB_LOG_LEVEL_INFO, "log_write_up_to in");
+
 	ut_ad(!srv_read_only_mode);
 
 	if (recv_no_ibuf_operations) {
@@ -1698,18 +1698,21 @@ log_write_up_to(
 		//mysql_cond_init(key_proj_cond, &proj_cond, NULL);
 		//mysql_mutex_init(key_proj_mutex, &proj_mutex, NULL);
 	}
-
+	
 	list_add(head, flush_param);
-	
-	
-    // cond_wait until flusher wakes up
-	// mysql_mutex_lock(&proj_mutex);
+		
+	// cond_wait until flusher wakes up
+	int cnt = 0;
+	mysql_mutex_lock(&proj_mutex);
 	// mysql_cond_signal(&proj_cond);
+	os_event_reset(log_sys->no_flush_event);
+	os_event_reset(log_sys->one_flushed_event);
 	do {
-		printf("%d", log_sys->write_lsn);
-		// mysql_cond_wait(&proj_cond, &proj_mutex);
+		mysql_cond_wait(&proj_cond, &proj_mutex);
 	} while (lsn > log_sys->write_lsn);
-	// mysql_mutex_unlock(&proj_mutex);
+	
+	mysql_mutex_unlock(&proj_mutex);
+	ib_logf(IB_LOG_LEVEL_INFO, "log_write_up_to out");
 
 // loop:
 // 	ut_ad(++loop_count < 100);
@@ -4295,6 +4298,8 @@ flusher()
 	ib_uint64_t	write_lsn;
 	ib_uint64_t	flush_lsn;
 
+	uint ts = 1000;
+
 	if (head == NULL) return;
 	LSN_INFO flush_info = list_remove(head);
 	
@@ -4312,10 +4317,10 @@ flusher()
 
 		mutex_exit(&(log_sys->mutex));
 
-		// return;
 		mysql_mutex_lock(&proj_mutex);
 		mysql_cond_broadcast(&proj_cond);
 		mysql_mutex_unlock(&proj_mutex);
+		return;
 	}
 
 	if (!flush_to_disk
@@ -4325,10 +4330,10 @@ flusher()
 
 		mutex_exit(&(log_sys->mutex));
 
-		// return;
 		mysql_mutex_lock(&proj_mutex);
 		mysql_cond_broadcast(&proj_cond);
 		mysql_mutex_unlock(&proj_mutex);
+		return;
 	}
 
 	if (log_sys->n_pending_writes > 0) {
@@ -4352,7 +4357,9 @@ flusher()
 
 		/* Wait for the write to complete and try to start a new write */
 
-		os_event_wait(log_sys->no_flush_event);
+		os_event_wait_time(log_sys->no_flush_event, ts);
+
+		return;
 	}
 
 	if (!flush_to_disk
@@ -4361,10 +4368,10 @@ flusher()
 
 		mutex_exit(&(log_sys->mutex));
 
-		// return;
 		mysql_mutex_lock(&proj_mutex);
 		mysql_cond_broadcast(&proj_cond);
 		mysql_mutex_unlock(&proj_mutex);
+		return;
 	}
 
 #ifdef UNIV_DEBUG
@@ -4382,8 +4389,8 @@ flusher()
 	group->n_pending_writes++;	/*!< We assume here that we have only
 					one log group! */
 
-	os_event_reset(log_sys->no_flush_event);
-	os_event_reset(log_sys->one_flushed_event);
+// 	os_event_reset(log_sys->no_flush_event);
+// 	os_event_reset(log_sys->one_flushed_event);
 
 	start_offset = log_sys->buf_next_to_write;
 	end_offset = log_sys->buf_free;
@@ -4475,18 +4482,20 @@ flusher()
 
 	// return;
 	mysql_mutex_lock(&proj_mutex);
+	ib_logf(IB_LOG_LEVEL_INFO, "wake cond");
 	mysql_cond_broadcast(&proj_cond);
 	mysql_mutex_unlock(&proj_mutex);
+	return;
 
-	do_waits:
+do_waits:
 	mutex_exit(&(log_sys->mutex));
 
 	switch (wait) {
 	case LOG_WAIT_ONE_GROUP:
-		os_event_wait(log_sys->one_flushed_event);
+		os_event_wait_time(log_sys->one_flushed_event, ts);
 		break;
 	case LOG_WAIT_ALL_GROUPS:
-		os_event_wait(log_sys->no_flush_event);
+		os_event_wait_time(log_sys->no_flush_event, ts);
 		break;
 	#ifdef UNIV_DEBUG
 	case LOG_NO_WAIT:

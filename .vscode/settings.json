@@ -26,6 +26,7 @@
         "async_queries.c": "cpp",
         "zutil.c": "cpp",
         "pcre_jit_compile.c": "cpp",
-        "*.tcc": "cpp"
+        "*.tcc": "cpp",
+        "thread": "cpp"
     }
 }
