@@ -4048,6 +4048,8 @@ public:
   {
     main_lex.restore_set_statement_var();
   }
+
+  bool is_sent;
 };
 
 

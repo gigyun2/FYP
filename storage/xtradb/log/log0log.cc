@@ -30,7 +30,6 @@ Database log
 
 Created 12/9/1995 Heikki Tuuri
 *******************************************************/
-#include <log.h>
 #include "config.h"
 #ifdef HAVE_ALLOCA_H
 #include "alloca.h"
@@ -66,6 +65,7 @@ Created 12/9/1995 Heikki Tuuri
 #include "trx0sys.h"
 #include "trx0trx.h"
 #include "trx0roll.h"
+#include "ha_prototypes.h"
 #include "srv0mon.h"
 
 mysql_cond_t proj_cond;
@@ -181,14 +181,7 @@ the previous */
 #define	LOG_ARCHIVE_WRITE	2
 
 
-
-
 // make fine-grained queue
-struct LSN_INFO {
-	lsn_t lsn;
-	ulint wait;
-	ibool flush_to_disk;
-};
 
 struct Node {
 	LSN_INFO key;
@@ -229,7 +222,6 @@ bool list_add(Node* head, LSN_INFO key) {
 	pthread_mutex_unlock(&prev->mutex);
 	pthread_mutex_unlock(&curr->mutex);
 
-	ib_logf(IB_LOG_LEVEL_INFO, "add %x", node);
 	return true;
 }
 
@@ -246,7 +238,6 @@ LSN_INFO list_remove(Node* head) {
 		pthread_mutex_unlock(&prev->mutex);
 		pthread_mutex_unlock(&curr->mutex);
 
-		ib_logf(IB_LOG_LEVEL_INFO, "remove %x", curr);
 		free(curr);
 		return return_info;
 	}
@@ -1675,8 +1666,6 @@ log_write_up_to(
 	ib_uint64_t	write_lsn;
 	ib_uint64_t	flush_lsn;
 
-	ib_logf(IB_LOG_LEVEL_INFO, "log_write_up_to in");
-
 	ut_ad(!srv_read_only_mode);
 
 	if (recv_no_ibuf_operations) {
@@ -1692,6 +1681,7 @@ log_write_up_to(
 	flush_param.lsn = lsn;
 	flush_param.wait = wait;
 	flush_param.flush_to_disk = flush_to_disk;
+	flush_param.thd = NULL;
 
 	if (head == NULL) {
 		list_init(&head, &tail);
@@ -1700,19 +1690,17 @@ log_write_up_to(
 	}
 	
 	list_add(head, flush_param);
-		
+	
 	// cond_wait until flusher wakes up
-	int cnt = 0;
-	mysql_mutex_lock(&proj_mutex);
+	// mysql_mutex_lock(&proj_mutex);
 	// mysql_cond_signal(&proj_cond);
 	os_event_reset(log_sys->no_flush_event);
 	os_event_reset(log_sys->one_flushed_event);
-	do {
-		mysql_cond_wait(&proj_cond, &proj_mutex);
-	} while (lsn > log_sys->write_lsn);
+	// do {
+	// 	mysql_cond_wait(&proj_cond, &proj_mutex);
+	// } while (lsn > log_sys->write_lsn);
 	
-	mysql_mutex_unlock(&proj_mutex);
-	ib_logf(IB_LOG_LEVEL_INFO, "log_write_up_to out");
+	// mysql_mutex_unlock(&proj_mutex);
 
 // loop:
 // 	ut_ad(++loop_count < 100);
@@ -1903,6 +1891,62 @@ log_write_up_to(
 // 		ut_error;
 // #endif /* UNIV_DEBUG */
 // 	}
+}
+
+/******************************************************//**
+This function is called, e.g., when a transaction wants to commit. It checks
+that the log has been written to the log file up to the last log entry written
+by the transaction. If there is a flush running, it waits and checks if the
+flush flushed enough. If not, starts a new flush. */
+UNIV_INTERN
+void
+log_write_up_to(
+/*============*/
+	lsn_t	lsn,	/*!< in: log sequence number up to which
+			the log should be written,
+			LSN_MAX if not specified */
+	ulint	wait,	/*!< in: LOG_NO_WAIT, LOG_WAIT_ONE_GROUP,
+			or LOG_WAIT_ALL_GROUPS */
+	ibool	flush_to_disk,
+			/*!< in: TRUE if we want the written log
+			also to be flushed to disk */
+	THD *thd)
+{
+	log_group_t*	group;
+	ulint		start_offset;
+	ulint		end_offset;
+	ulint		area_start;
+	ulint		area_end;
+	ulint		unlock;
+	ib_uint64_t	write_lsn;
+	ib_uint64_t	flush_lsn;
+
+	ut_ad(!srv_read_only_mode);
+
+	if (recv_no_ibuf_operations) {
+		/* Recovery is running and no operations on the log files are
+		allowed yet (the variable name .._no_ibuf_.. is misleading) */
+
+		return;
+	}
+
+    // make flusher_main to work
+	LSN_INFO flush_param;
+	
+	flush_param.lsn = lsn;
+	flush_param.wait = wait;
+	flush_param.flush_to_disk = flush_to_disk;
+	flush_param.thd = thd;
+
+	if (head == NULL) {
+		list_init(&head, &tail);
+	}
+	
+	list_add(head, flush_param);
+	
+	// cond_wait until flusher wakes up
+	os_event_reset(log_sys->no_flush_event);
+	os_event_reset(log_sys->one_flushed_event);
 }
 
 /****************************************************************//**
@@ -4320,6 +4364,9 @@ flusher()
 		mysql_mutex_lock(&proj_mutex);
 		mysql_cond_broadcast(&proj_cond);
 		mysql_mutex_unlock(&proj_mutex);
+
+		
+		innobase_start_end_statement(flush_info.thd);
 		return;
 	}
 
@@ -4333,6 +4380,9 @@ flusher()
 		mysql_mutex_lock(&proj_mutex);
 		mysql_cond_broadcast(&proj_cond);
 		mysql_mutex_unlock(&proj_mutex);
+
+		
+		innobase_start_end_statement(flush_info.thd);
 		return;
 	}
 
@@ -4371,6 +4421,8 @@ flusher()
 		mysql_mutex_lock(&proj_mutex);
 		mysql_cond_broadcast(&proj_cond);
 		mysql_mutex_unlock(&proj_mutex);
+
+		innobase_start_end_statement(flush_info.thd);
 		return;
 	}
 
@@ -4485,6 +4537,10 @@ flusher()
 	ib_logf(IB_LOG_LEVEL_INFO, "wake cond");
 	mysql_cond_broadcast(&proj_cond);
 	mysql_mutex_unlock(&proj_mutex);
+
+	
+	innobase_start_end_statement(flush_info.thd);
+
 	return;
 
 do_waits:

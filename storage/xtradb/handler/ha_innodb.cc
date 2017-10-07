@@ -22398,3 +22398,17 @@ ib_push_frm_error(
 		break;
 	}
 }
+
+/**********************************************************************//**
+Determines the connection protocol.
+@return	connection protocol */
+void
+innobase_start_end_statement(
+/*=================*/
+	THD*	thd)	/*!< in: MySQL thread handle */
+{
+	if (thd) {
+		thd->update_server_status();
+		thd->protocol->end_statement();
+	}
+}

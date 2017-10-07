@@ -41,6 +41,8 @@ Created 5/11/2006 Osku Salerma
 
 #include "m_ctype.h" /* CHARSET_INFO */
 
+#include "protocol.h"
+
 // Forward declarations
 class Field;
 struct fts_string_t;
@@ -687,4 +689,13 @@ normalize_table_name_low(
 	const char*	name,		/*!< in: table name string */
 	ibool		set_lower_case); /*!< in: TRUE if we want to set
 					name to lower case */
+
+/**********************************************************************//**
+Determines the connection protocol.
+@return	connection protocol */
+void
+innobase_start_end_statement(
+/*=================*/
+	THD*	thd);	/*!< in: MySQL thread handle */
+
 #endif /* HA_INNODB_PROTOTYPES_H */

@@ -1376,7 +1376,7 @@ trx_flush_log_if_needed_low(
         case 3:
 		/* Write the log and optionally flush it to disk */
 		log_write_up_to(lsn, LOG_WAIT_ONE_GROUP,
-				srv_unix_file_flush_method != SRV_UNIX_NOSYNC);
+				srv_unix_file_flush_method != SRV_UNIX_NOSYNC, trx->mysql_thd);
 		break;
 	case 2:
 		/* Write the log but do not flush it to disk */

@@ -43,6 +43,13 @@ Created 12/9/1995 Heikki Tuuri
 #endif /* !UNIV_HOTBACKUP */
 #include "log0crypt.h"
 
+struct LSN_INFO {
+	lsn_t lsn;
+	ulint wait;
+	ibool flush_to_disk;
+	THD *thd;
+};
+
 /* Type used for all log sequence number storage and arithmetics */
 typedef	ib_uint64_t		lsn_t;
 #define LSN_MAX			IB_UINT64_MAX
@@ -245,6 +252,23 @@ log_write_up_to(
 	ibool	flush_to_disk);
 			/*!< in: TRUE if we want the written log
 			also to be flushed to disk */
+/******************************************************//**
+This function is called, e.g., when a transaction wants to commit. It checks
+that the log has been written to the log file up to the last log entry written
+by the transaction. If there is a flush running, it waits and checks if the
+flush flushed enough. If not, starts a new flush. */
+UNIV_INTERN
+void
+log_write_up_to(
+/*============*/
+	lsn_t	lsn,	/*!< in: log sequence number up to which
+			the log should be written, LSN_MAX if not specified */
+	ulint	wait,	/*!< in: LOG_NO_WAIT, LOG_WAIT_ONE_GROUP,
+			or LOG_WAIT_ALL_GROUPS */
+	ibool	flush_to_disk,
+			/*!< in: TRUE if we want the written log
+			also to be flushed to disk */
+	THD	*thd);
 /****************************************************************//**
 Does a syncronous flush of the log buffer to disk. */
 UNIV_INTERN
