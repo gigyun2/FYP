@@ -22412,3 +22412,12 @@ innobase_start_end_statement(
 		thd->protocol->end_statement();
 	}
 }
+
+void
+innobase_use_log_write_up_to(
+	THD *thd) 
+{
+	if (thd) {
+		thd->use_log_write_up_to = TRUE;
+	}
+}

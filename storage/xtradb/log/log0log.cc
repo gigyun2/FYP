@@ -1943,6 +1943,7 @@ log_write_up_to(
 	}
 	
 	list_add(head, flush_param);
+	innobase_use_log_write_up_to(flush_param.thd);
 	
 	// cond_wait until flusher wakes up
 	os_event_reset(log_sys->no_flush_event);
@@ -4534,7 +4535,6 @@ flusher()
 
 	// return;
 	mysql_mutex_lock(&proj_mutex);
-	ib_logf(IB_LOG_LEVEL_INFO, "wake cond");
 	mysql_cond_broadcast(&proj_cond);
 	mysql_mutex_unlock(&proj_mutex);
 

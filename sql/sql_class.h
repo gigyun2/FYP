@@ -1918,6 +1918,7 @@ public:
   rpl_group_info* rgi_fake;
   /* Slave applier execution context */
   rpl_group_info* rgi_slave;
+  bool use_log_write_up_to;
 
   union {
     rpl_io_thread_info *rpl_io_info;

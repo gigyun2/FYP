@@ -1080,6 +1080,7 @@ THD::THD(bool is_wsrep_applier)
   prepare_derived_at_open= FALSE;
   create_tmp_table_for_derived= FALSE;
   save_prep_leaf_list= FALSE;
+  use_log_write_up_to = FALSE;
   /* Restore THR_THD */
   set_current_thd(old_THR_THD);
 }

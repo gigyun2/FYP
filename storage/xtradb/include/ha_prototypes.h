@@ -698,4 +698,8 @@ innobase_start_end_statement(
 /*=================*/
 	THD*	thd);	/*!< in: MySQL thread handle */
 
+void
+innobase_use_log_write_up_to(
+	THD*	thd);
+
 #endif /* HA_INNODB_PROTOTYPES_H */
