@@ -229,6 +229,12 @@ LSN_INFO list_remove(Node* head) {
 	Node* prev = head;
 	pthread_mutex_lock(&prev->mutex);
 	Node* curr = head->next;
+	if (curr == NULL) {
+		pthread_mutex_lock(&prev->mutex);
+		LSN_INFO return_info;
+		return_info.lsn = -1;
+		return return_info;
+	}
 	pthread_mutex_lock(&curr->mutex);
 
 	if (curr != tail) {
@@ -4368,6 +4374,7 @@ flusher()
 
 		
 		innobase_start_end_statement(flush_info.thd);
+		innobase_finish_log_write_up_to(flush_info.thd);
 		return;
 	}
 
@@ -4384,6 +4391,7 @@ flusher()
 
 		
 		innobase_start_end_statement(flush_info.thd);
+		innobase_finish_log_write_up_to(flush_info.thd);
 		return;
 	}
 
@@ -4424,6 +4432,7 @@ flusher()
 		mysql_mutex_unlock(&proj_mutex);
 
 		innobase_start_end_statement(flush_info.thd);
+		innobase_finish_log_write_up_to(flush_info.thd);
 		return;
 	}
 
@@ -4540,6 +4549,7 @@ flusher()
 
 	
 	innobase_start_end_statement(flush_info.thd);
+	innobase_finish_log_write_up_to(flush_info.thd);
 
 	return;
 

@@ -702,4 +702,8 @@ void
 innobase_use_log_write_up_to(
 	THD*	thd);
 
+void
+innobase_finish_log_write_up_to(
+	THD*	thd);
+
 #endif /* HA_INNODB_PROTOTYPES_H */

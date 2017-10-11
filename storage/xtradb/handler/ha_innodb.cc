@@ -22421,3 +22421,12 @@ innobase_use_log_write_up_to(
 		thd->use_log_write_up_to = TRUE;
 	}
 }
+
+void
+innobase_finish_log_write_up_to(
+	THD*	thd)
+{
+	if (thd) {
+		thd->use_log_write_up_to = FALSE;
+	}
+}

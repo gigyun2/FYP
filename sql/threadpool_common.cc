@@ -268,7 +268,10 @@ int threadpool_process_request(THD *thd)
     thd->net.reading_or_writing= 0;
     mysql_audit_release(thd);
 
-    thd->use_log_write_up_to = FALSE;
+    if(thd->use_log_write_up_to == TRUE) {
+      break;
+    }
+
     if ((retval= do_command(thd)) != 0)
       goto end;
 
