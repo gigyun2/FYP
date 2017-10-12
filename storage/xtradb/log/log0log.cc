@@ -230,7 +230,7 @@ LSN_INFO list_remove(Node* head) {
 	pthread_mutex_lock(&prev->mutex);
 	Node* curr = head->next;
 	if (curr == NULL) {
-		pthread_mutex_lock(&prev->mutex);
+		pthread_mutex_unlock(&prev->mutex);
 		LSN_INFO return_info;
 		return_info.lsn = -1;
 		return return_info;
