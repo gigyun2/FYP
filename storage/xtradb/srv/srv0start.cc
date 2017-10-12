@@ -106,8 +106,13 @@ Created 2/16/1996 Heikki Tuuri
 # include "zlib.h"
 # include "ut0crc32.h"
 # include "os0stacktrace.h"
+# include "log0log.h"
 
 #include "threadpool.h"
+
+
+extern Node *head;
+extern Node *tail;
 
 /** Log sequence number immediately after startup */
 UNIV_INTERN lsn_t	srv_start_lsn;
@@ -2995,6 +3000,7 @@ files_checked:
 	buf_flush_lru_manager_thread_handle = os_thread_create(buf_flush_lru_manager_thread, NULL, NULL);
 	buf_flush_lru_manager_thread_started = true;
 
+	list_init(&head, &tail);
 	log_flush_thread_handle = os_thread_create(flusher_main, NULL, NULL);
 	log_flush_thread_started = true;
 

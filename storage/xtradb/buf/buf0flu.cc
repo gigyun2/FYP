@@ -3117,10 +3117,6 @@ buf_flush_get_dirty_pages_count(
 extern mysql_cond_t proj_cond;
 extern mysql_mutex_t proj_mutex;
 
-// need to re-define
-extern Node *head;
-extern Node *tail;
-
 extern "C" UNIV_INTERN
 os_thread_ret_t
 DECLARE_THREAD(flusher_main)(
@@ -3146,12 +3142,6 @@ DECLARE_THREAD(flusher_main)(
   DBUG_ENTER("flusher_main");
 
   log_flush_thread_active = true;
-
-  //if (head == NULL) {
-	list_init(&head, &tail);
-	//mysql_cond_init(key_proj_cond, &proj_cond, NULL);
-	//mysql_mutex_init(key_proj_mutex, &proj_mutex, NULL);
-  //}
   
   while (srv_shutdown_state != SRV_SHUTDOWN_EXIT_THREADS) {
 

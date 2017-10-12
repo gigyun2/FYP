@@ -1669,9 +1669,6 @@ log_write_up_to(
 	} while(head == NULL);
 	
 	list_add(head, flush_param);
-	
-	os_event_reset(log_sys->no_flush_event);
-	os_event_reset(log_sys->one_flushed_event);
 
 }
 
@@ -1717,9 +1714,6 @@ log_write_up_to(
 	list_add(head, flush_param);
 	innobase_use_log_write_up_to(flush_param.thd);
 	
-	// cond_wait until flusher wakes up
-	os_event_reset(log_sys->no_flush_event);
-	os_event_reset(log_sys->one_flushed_event);
 }
 
 /****************************************************************//**
@@ -4133,10 +4127,6 @@ loop:
 		&& log_sys->flushed_to_disk_lsn >= lsn) {
 
 		mutex_exit(&(log_sys->mutex));
-
-		mysql_mutex_lock(&proj_mutex);
-		mysql_cond_broadcast(&proj_cond);
-		mysql_mutex_unlock(&proj_mutex);
 		
 		innobase_start_end_statement(flush_info.thd);
 		innobase_finish_log_write_up_to(flush_info.thd);
@@ -4150,10 +4140,6 @@ loop:
 
 		mutex_exit(&(log_sys->mutex));
 
-		mysql_mutex_lock(&proj_mutex);
-		mysql_cond_broadcast(&proj_cond);
-		mysql_mutex_unlock(&proj_mutex);
-
 		innobase_start_end_statement(flush_info.thd);
 		innobase_finish_log_write_up_to(flush_info.thd);
 		return;
@@ -4166,21 +4152,21 @@ loop:
 			&& log_sys->current_flush_lsn >= lsn) {
 			/* The write + flush will write enough: wait for it to complete */
 
-			goto do_waits;
+			// goto do_waits;
 		}
 
 		if (!flush_to_disk
 			&& log_sys->write_lsn >= lsn) {
 			/* The write will write enough: wait for it to complete */
 
-			goto do_waits;
+			// goto do_waits;
 		}
 
 		mutex_exit(&(log_sys->mutex));
 
 		/* Wait for the write to complete and try to start a new write */
 
-		os_event_wait_time(log_sys->no_flush_event, ts);
+		// os_event_wait_time(log_sys->no_flush_event, ts);
  
 		goto loop;
 	}
@@ -4190,10 +4176,6 @@ loop:
 		/* Nothing to write and no flush to disk requested */
 
 		mutex_exit(&(log_sys->mutex));
-
-		mysql_mutex_lock(&proj_mutex);
-		mysql_cond_broadcast(&proj_cond);
-		mysql_mutex_unlock(&proj_mutex);
 
 		innobase_start_end_statement(flush_info.thd);
 		innobase_finish_log_write_up_to(flush_info.thd);
@@ -4305,37 +4287,31 @@ loop:
 	mutex_exit(&(log_sys->mutex));
 
 	innobase_mysql_log_notify(write_lsn, flush_lsn);
-
-	// return;
-	mysql_mutex_lock(&proj_mutex);
-	mysql_cond_broadcast(&proj_cond);
-	mysql_mutex_unlock(&proj_mutex);
-
 	
 	innobase_start_end_statement(flush_info.thd);
 	innobase_finish_log_write_up_to(flush_info.thd);
 
 	return;
 
-do_waits:
-	mutex_exit(&(log_sys->mutex));
-	innobase_start_end_statement(flush_info.thd);
-	innobase_finish_log_write_up_to(flush_info.thd);
+// do_waits:
+// 	mutex_exit(&(log_sys->mutex));
+// 	innobase_start_end_statement(flush_info.thd);
+// 	innobase_finish_log_write_up_to(flush_info.thd);
 
-	switch (wait) {
-	case LOG_WAIT_ONE_GROUP:
-		os_event_wait_time(log_sys->one_flushed_event, ts);
-		break;
-	case LOG_WAIT_ALL_GROUPS:
-		os_event_wait_time(log_sys->no_flush_event, ts);
-		break;
-	#ifdef UNIV_DEBUG
-	case LOG_NO_WAIT:
-		break;
-	default:
-		ut_error;
-	#endif /* UNIV_DEBUG */
-	}
+// 	switch (wait) {
+// 	case LOG_WAIT_ONE_GROUP:
+// 		os_event_wait_time(log_sys->one_flushed_event, ts);
+// 		break;
+// 	case LOG_WAIT_ALL_GROUPS:
+// 		os_event_wait_time(log_sys->no_flush_event, ts);
+// 		break;
+// 	#ifdef UNIV_DEBUG
+// 	case LOG_NO_WAIT:
+// 		break;
+// 	default:
+// 		ut_error;
+// 	#endif /* UNIV_DEBUG */
+// 	}
 }
 // void *flusher_main(void *param)
 // {
