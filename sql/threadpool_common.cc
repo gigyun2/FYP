@@ -263,11 +263,7 @@ int threadpool_process_request(THD *thd)
     was the case).
   */
   for(;;)
-  {
-    if (thd->use_log_write_up_to == TRUE) {
-      continue;
-    }
-
+  {  
     Vio *vio;
     thd->net.reading_or_writing= 0;
     mysql_audit_release(thd);
@@ -275,9 +271,7 @@ int threadpool_process_request(THD *thd)
     if ((retval= do_command(thd)) != 0)
       goto end;
 
-    if (thd->use_log_write_up_to == TRUE) {
-      continue;
-    }
+    while (thd->use_log_write_up_to == TRUE);
 
     if (!thd_is_connection_alive(thd))
     {

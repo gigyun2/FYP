@@ -1665,8 +1665,7 @@ log_write_up_to(
 	flush_param.flush_to_disk = flush_to_disk;
 	flush_param.thd = NULL;
 
-	do {
-	} while(head == NULL);
+	while(head == NULL);
 	
 	list_add(head, flush_param);
 
@@ -1708,8 +1707,7 @@ log_write_up_to(
 	flush_param.flush_to_disk = flush_to_disk;
 	flush_param.thd = thd;
 
-	do {
-	} while(head == NULL);
+	while(head == NULL);
 
 	list_add(head, flush_param);
 	innobase_use_log_write_up_to(flush_param.thd);
