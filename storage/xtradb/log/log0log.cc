@@ -180,16 +180,6 @@ the previous */
 #define	LOG_ARCHIVE_READ	1
 #define	LOG_ARCHIVE_WRITE	2
 
-
-// make fine-grained queue
-
-struct Node {
-	LSN_INFO key;
-	Node *next;
-	pthread_mutex_t mutex;
-};
-
-// need to re-define
 Node *head;
 Node *tail;
 
@@ -4126,13 +4116,6 @@ flusher()
 	ib_uint64_t	flush_lsn;
 
 	uint ts = 1000;
-
-
-	if (head == NULL) {
-		list_init(&head, &tail);
-		//mysql_cond_init(key_proj_cond, &proj_cond, NULL);
-		//mysql_mutex_init(key_proj_mutex, &proj_mutex, NULL);
-	}
 
 	if (head == NULL || head->next == tail) return;
 	LSN_INFO flush_info = list_remove(head);

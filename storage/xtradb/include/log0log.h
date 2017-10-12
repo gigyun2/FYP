@@ -50,6 +50,14 @@ struct LSN_INFO {
 	THD *thd;
 };
 
+struct Node {
+	LSN_INFO key;
+	Node *next;
+	pthread_mutex_t mutex;
+};
+
+void list_init(Node** head, Node** tail);
+
 /* Type used for all log sequence number storage and arithmetics */
 typedef	ib_uint64_t		lsn_t;
 #define LSN_MAX			IB_UINT64_MAX
