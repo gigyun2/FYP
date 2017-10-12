@@ -212,47 +212,43 @@ bool list_add(Node* head, LSN_INFO key) {
 	}
 
 	if(curr->key.lsn == key.lsn) {
-		pthread_mutex_unlock(&prev->mutex);
 		pthread_mutex_unlock(&curr->mutex);
+		pthread_mutex_unlock(&prev->mutex);
 		return false;
 	}
 	prev->next = node;
 	node->next = curr;
 
-	pthread_mutex_unlock(&prev->mutex);
 	pthread_mutex_unlock(&curr->mutex);
+	pthread_mutex_unlock(&prev->mutex);
 
 	return true;
 }
 
 LSN_INFO list_remove(Node* head) {
+
 	Node* prev = head;
 	pthread_mutex_lock(&prev->mutex);
 	Node* curr = head->next;
-	if (curr == NULL) {
-		pthread_mutex_unlock(&prev->mutex);
-		LSN_INFO return_info;
-		return_info.lsn = -1;
-		return return_info;
-	}
 	pthread_mutex_lock(&curr->mutex);
 
 	if (curr != tail) {
 		LSN_INFO return_info = curr->key;
 		prev->next = curr->next;
 
-		pthread_mutex_unlock(&prev->mutex);
 		pthread_mutex_unlock(&curr->mutex);
-
 		free(curr);
+
+		pthread_mutex_unlock(&prev->mutex);
 		return return_info;
 	}
 
 	// empty
-	pthread_mutex_unlock(&prev->mutex);
 	pthread_mutex_unlock(&curr->mutex);
 	LSN_INFO return_info;
 	return_info.lsn = -1;
+
+	pthread_mutex_unlock(&prev->mutex);
 	return return_info;
 }
 
@@ -260,8 +256,7 @@ void list_init(Node** head, Node** tail) {
 	*head = (Node*)malloc(sizeof(Node));
 	(*head)->key.lsn = 0;
 	*tail = (Node*)malloc(sizeof(Node));
-	(*tail)->key.lsn = -1;
-
+	(*tail)->key.lsn = LSN_MAX;
 
 	(*head)->mutex = PTHREAD_MUTEX_INITIALIZER;
 	(*tail)->mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -1663,15 +1658,6 @@ log_write_up_to(
 			/*!< in: TRUE if we want the written log
 			also to be flushed to disk */
 {
-	log_group_t*	group;
-	ulint		start_offset;
-	ulint		end_offset;
-	ulint		area_start;
-	ulint		area_end;
-	ulint		unlock;
-	ib_uint64_t	write_lsn;
-	ib_uint64_t	flush_lsn;
-
 	ut_ad(!srv_read_only_mode);
 
 	if (recv_no_ibuf_operations) {
@@ -1689,214 +1675,14 @@ log_write_up_to(
 	flush_param.flush_to_disk = flush_to_disk;
 	flush_param.thd = NULL;
 
-	if (head == NULL) {
-		list_init(&head, &tail);
-		//mysql_cond_init(key_proj_cond, &proj_cond, NULL);
-		//mysql_mutex_init(key_proj_mutex, &proj_mutex, NULL);
-	}
+	do {
+	} while(head == NULL);
 	
 	list_add(head, flush_param);
 	
-	// cond_wait until flusher wakes up
-	// mysql_mutex_lock(&proj_mutex);
-	// mysql_cond_signal(&proj_cond);
 	os_event_reset(log_sys->no_flush_event);
 	os_event_reset(log_sys->one_flushed_event);
-	// do {
-	// 	mysql_cond_wait(&proj_cond, &proj_mutex);
-	// } while (lsn > log_sys->write_lsn);
-	
-	// mysql_mutex_unlock(&proj_mutex);
 
-// loop:
-// 	ut_ad(++loop_count < 100);
-
-// 	mutex_enter(&(log_sys->mutex));
-// 	ut_ad(!recv_no_log_write);
-
-// 	if (flush_to_disk
-// 	    && log_sys->flushed_to_disk_lsn >= lsn) {
-
-// 		mutex_exit(&(log_sys->mutex));
-
-// 		return;
-// 	}
-
-// 	if (!flush_to_disk
-// 	    && (log_sys->written_to_all_lsn >= lsn
-// 		|| (log_sys->written_to_some_lsn >= lsn
-// 		    && wait != LOG_WAIT_ALL_GROUPS))) {
-
-// 		mutex_exit(&(log_sys->mutex));
-
-// 		return;
-// 	}
-
-// 	if (log_sys->n_pending_writes > 0) {
-// 		/* A write (+ possibly flush to disk) is running */
-
-// 		if (flush_to_disk
-// 		    && log_sys->current_flush_lsn >= lsn) {
-// 			/* The write + flush will write enough: wait for it to
-// 			complete */
-
-// 			goto do_waits;
-// 		}
-
-// 		if (!flush_to_disk
-// 		    && log_sys->write_lsn >= lsn) {
-// 			/* The write will write enough: wait for it to
-// 			complete */
-
-// 			goto do_waits;
-// 		}
-
-// 		mutex_exit(&(log_sys->mutex));
-
-// 		/* Wait for the write to complete and try to start a new
-// 		write */
-
-// 		os_event_wait(log_sys->no_flush_event);
-
-// 		goto loop;
-// 	}
-
-// 	if (!flush_to_disk
-// 	    && log_sys->buf_free == log_sys->buf_next_to_write) {
-// 		/* Nothing to write and no flush to disk requested */
-
-// 		mutex_exit(&(log_sys->mutex));
-
-// 		return;
-// 	}
-
-// #ifdef UNIV_DEBUG
-// 	if (log_debug_writes) {
-// 		fprintf(stderr,
-// 			"Writing log from " LSN_PF " up to lsn " LSN_PF "\n",
-// 			log_sys->written_to_all_lsn,
-// 			log_sys->lsn);
-// 	}
-// #endif /* UNIV_DEBUG */
-// 	log_sys->n_pending_writes++;
-// 	MONITOR_INC(MONITOR_PENDING_LOG_WRITE);
-
-// 	group = UT_LIST_GET_FIRST(log_sys->log_groups);
-// 	group->n_pending_writes++;	/*!< We assume here that we have only
-// 					one log group! */
-
-// 	os_event_reset(log_sys->no_flush_event);
-// 	os_event_reset(log_sys->one_flushed_event);
-
-// 	start_offset = log_sys->buf_next_to_write;
-// 	end_offset = log_sys->buf_free;
-
-// 	area_start = ut_calc_align_down(start_offset, OS_FILE_LOG_BLOCK_SIZE);
-// 	area_end = ut_calc_align(end_offset, OS_FILE_LOG_BLOCK_SIZE);
-
-// 	ut_ad(area_end - area_start > 0);
-
-// 	log_sys->write_lsn = log_sys->lsn;
-
-// 	if (flush_to_disk) {
-// 		log_sys->current_flush_lsn = log_sys->lsn;
-// 	}
-
-// 	log_sys->one_flushed = FALSE;
-
-// 	log_block_set_flush_bit(log_sys->buf + area_start, TRUE);
-// 	log_block_set_checkpoint_no(
-// 		log_sys->buf + area_end - OS_FILE_LOG_BLOCK_SIZE,
-// 		log_sys->next_checkpoint_no);
-
-// 	/* Copy the last, incompletely written, log block a log block length
-// 	up, so that when the flush operation writes from the log buffer, the
-// 	segment to write will not be changed by writers to the log */
-
-// 	ut_memcpy(log_sys->buf + area_end,
-// 		  log_sys->buf + area_end - OS_FILE_LOG_BLOCK_SIZE,
-// 		  OS_FILE_LOG_BLOCK_SIZE);
-
-// 	log_sys->buf_free += OS_FILE_LOG_BLOCK_SIZE;
-// 	log_sys->write_end_offset = log_sys->buf_free;
-
-// 	group = UT_LIST_GET_FIRST(log_sys->log_groups);
-
-// 	/* Do the write to the log files */
-
-// 	while (group) {
-// 		log_group_write_buf(
-// 			group, log_sys->buf + area_start,
-// 			area_end - area_start,
-// 			ut_uint64_align_down(log_sys->written_to_all_lsn,
-// 					     OS_FILE_LOG_BLOCK_SIZE),
-// 			start_offset - area_start);
-
-// 		log_group_set_fields(group, log_sys->write_lsn);
-
-// 		group = UT_LIST_GET_NEXT(log_groups, group);
-// 	}
-
-// 	mutex_exit(&(log_sys->mutex));
-
-// 	if (srv_unix_file_flush_method == SRV_UNIX_O_DSYNC
-// 	    || srv_unix_file_flush_method == SRV_UNIX_ALL_O_DIRECT) {
-// 		/* O_DSYNC or ALL_O_DIRECT means the OS did not buffer the log
-// 		file at all: so we have also flushed to disk what we have
-// 		written */
-
-// 		log_sys->flushed_to_disk_lsn = log_sys->write_lsn;
-
-// 	} else if (flush_to_disk) {
-
-// 		group = UT_LIST_GET_FIRST(log_sys->log_groups);
-
-// 		fil_flush(group->space_id);
-// 		log_sys->flushed_to_disk_lsn = log_sys->write_lsn;
-// 	}
-
-// 	mutex_enter(&(log_sys->mutex));
-
-// 	group = UT_LIST_GET_FIRST(log_sys->log_groups);
-
-// 	ut_a(group->n_pending_writes == 1);
-// 	ut_a(log_sys->n_pending_writes == 1);
-
-// 	group->n_pending_writes--;
-// 	log_sys->n_pending_writes--;
-// 	MONITOR_DEC(MONITOR_PENDING_LOG_WRITE);
-
-// 	unlock = log_group_check_flush_completion(group);
-// 	unlock = unlock | log_sys_check_flush_completion();
-
-// 	log_flush_do_unlocks(unlock);
-
-// 	write_lsn = log_sys->write_lsn;
-// 	flush_lsn = log_sys->flushed_to_disk_lsn;
-
-// 	mutex_exit(&(log_sys->mutex));
-
-// 	innobase_mysql_log_notify(write_lsn, flush_lsn);
-
-// 	return;
-
-// do_waits:
-// 	mutex_exit(&(log_sys->mutex));
-
-// 	switch (wait) {
-// 	case LOG_WAIT_ONE_GROUP:
-// 		os_event_wait(log_sys->one_flushed_event);
-// 		break;
-// 	case LOG_WAIT_ALL_GROUPS:
-// 		os_event_wait(log_sys->no_flush_event);
-// 		break;
-// #ifdef UNIV_DEBUG
-// 	case LOG_NO_WAIT:
-// 		break;
-// 	default:
-// 		ut_error;
-// #endif /* UNIV_DEBUG */
-// 	}
 }
 
 /******************************************************//**
@@ -1918,15 +1704,6 @@ log_write_up_to(
 			also to be flushed to disk */
 	THD *thd)
 {
-	log_group_t*	group;
-	ulint		start_offset;
-	ulint		end_offset;
-	ulint		area_start;
-	ulint		area_end;
-	ulint		unlock;
-	ib_uint64_t	write_lsn;
-	ib_uint64_t	flush_lsn;
-
 	ut_ad(!srv_read_only_mode);
 
 	if (recv_no_ibuf_operations) {
@@ -1944,10 +1721,9 @@ log_write_up_to(
 	flush_param.flush_to_disk = flush_to_disk;
 	flush_param.thd = thd;
 
-	if (head == NULL) {
-		list_init(&head, &tail);
-	}
-	
+	do {
+	} while(head == NULL);
+
 	list_add(head, flush_param);
 	innobase_use_log_write_up_to(flush_param.thd);
 	
@@ -4351,7 +4127,14 @@ flusher()
 
 	uint ts = 1000;
 
-	if (head == NULL) return;
+
+	if (head == NULL) {
+		list_init(&head, &tail);
+		//mysql_cond_init(key_proj_cond, &proj_cond, NULL);
+		//mysql_mutex_init(key_proj_mutex, &proj_mutex, NULL);
+	}
+
+	if (head == NULL || head->next == tail) return;
 	LSN_INFO flush_info = list_remove(head);
 	
 	if (flush_info.lsn == -1) return;
@@ -4359,7 +4142,7 @@ flusher()
 	lsn_t lsn = flush_info.lsn;
 	ibool flush_to_disk = flush_info.flush_to_disk;
 	ulint wait = flush_info.wait;
-
+loop:
 	mutex_enter(&(log_sys->mutex));
 	ut_ad(!recv_no_log_write);
 
@@ -4371,7 +4154,6 @@ flusher()
 		mysql_mutex_lock(&proj_mutex);
 		mysql_cond_broadcast(&proj_cond);
 		mysql_mutex_unlock(&proj_mutex);
-
 		
 		innobase_start_end_statement(flush_info.thd);
 		innobase_finish_log_write_up_to(flush_info.thd);
@@ -4389,7 +4171,6 @@ flusher()
 		mysql_cond_broadcast(&proj_cond);
 		mysql_mutex_unlock(&proj_mutex);
 
-		
 		innobase_start_end_statement(flush_info.thd);
 		innobase_finish_log_write_up_to(flush_info.thd);
 		return;
@@ -4417,8 +4198,8 @@ flusher()
 		/* Wait for the write to complete and try to start a new write */
 
 		os_event_wait_time(log_sys->no_flush_event, ts);
-
-		return;
+ 
+		goto loop;
 	}
 
 	if (!flush_to_disk
@@ -4451,8 +4232,8 @@ flusher()
 	group->n_pending_writes++;	/*!< We assume here that we have only
 					one log group! */
 
-// 	os_event_reset(log_sys->no_flush_event);
-// 	os_event_reset(log_sys->one_flushed_event);
+	os_event_reset(log_sys->no_flush_event);
+	os_event_reset(log_sys->one_flushed_event);
 
 	start_offset = log_sys->buf_next_to_write;
 	end_offset = log_sys->buf_free;
@@ -4555,6 +4336,8 @@ flusher()
 
 do_waits:
 	mutex_exit(&(log_sys->mutex));
+	innobase_start_end_statement(flush_info.thd);
+	innobase_finish_log_write_up_to(flush_info.thd);
 
 	switch (wait) {
 	case LOG_WAIT_ONE_GROUP:

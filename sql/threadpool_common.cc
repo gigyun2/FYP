@@ -264,19 +264,19 @@ int threadpool_process_request(THD *thd)
   */
   for(;;)
   {
+    if (thd->use_log_write_up_to == TRUE) {
+      continue;
+    }
+
     Vio *vio;
     thd->net.reading_or_writing= 0;
     mysql_audit_release(thd);
 
-    if(thd->use_log_write_up_to == TRUE) {
-      break;
-    }
-
     if ((retval= do_command(thd)) != 0)
       goto end;
 
-    if(thd->use_log_write_up_to == TRUE) {
-      break;
+    if (thd->use_log_write_up_to == TRUE) {
+      continue;
     }
 
     if (!thd_is_connection_alive(thd))
