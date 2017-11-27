@@ -271,8 +271,6 @@ int threadpool_process_request(THD *thd)
     if ((retval= do_command(thd)) != 0)
       goto end;
 
-    while (thd->use_log_write_up_to == TRUE);
-
     if (!thd_is_connection_alive(thd))
     {
       retval= 1;
