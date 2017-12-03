@@ -1712,8 +1712,14 @@ log_write_up_to(
 	list_add(head, flush_param);
 	innobase_use_log_write_up_to(flush_param.thd);
 	
+	// int repeat = 0;
 	while(innobase_check_log_write_up_to(flush_param.thd)) {
-		Sleep(20);
+		usleep(50);
+		// repeat++;
+		// if (repeat > 100) {
+		// 	usleep(50);
+		// 	repeat = 0;
+		// }
 	}
 
 }
